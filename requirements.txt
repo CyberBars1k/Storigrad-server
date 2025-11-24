@@ -6,3 +6,4 @@ python-jose
 passlib
 python-dotenv
 pydantic
+pydantic-settings
