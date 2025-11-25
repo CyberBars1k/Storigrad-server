@@ -7,3 +7,4 @@ passlib
 python-dotenv
 pydantic-settings
 pydantic[email]
+openai
