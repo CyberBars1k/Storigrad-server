@@ -1,7 +1,7 @@
 # server/app/models.py
 from datetime import datetime, timezone
-
-from sqlalchemy import String, Integer, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, JSON
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -19,3 +19,43 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class Story(Base):
+    __tablename__ = "stories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    title = Column(String, nullable=True)  # пока можно оставить nullable
+    config = Column(JSON, nullable=False)  # сюда кладём sys.json / payload
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    turns = relationship(
+        "StoryTurn",
+        back_populates="story",
+        cascade="all, delete-orphan",
+        order_by="StoryTurn.idx",
+    )
+
+
+class StoryTurn(Base):
+    __tablename__ = "story_turns"
+
+    id = Column(Integer, primary_key=True, index=True)
+    story_id = Column(Integer, ForeignKey("stories.id"), nullable=False)
+
+    idx = Column(Integer, nullable=False)  # номер хода в истории
+    user_text = Column(Text, nullable=False)
+    model_text = Column(Text, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    story = relationship("Story", back_populates="turns")

@@ -20,3 +20,7 @@ class InferenceResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+
+class StoryStepIn(BaseModel):
+    story_id: int = Field(..., description="ID of the story to continue")
+    user_input: str = Field(..., description="Text input from user")

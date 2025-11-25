@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str
     JWT_EXPIRE_HOURS: int
 
+    HF_TOKEN: str
+
     
     class Config:
         env_file = ".env"
