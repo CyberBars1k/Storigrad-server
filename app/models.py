@@ -27,7 +27,7 @@ class Story(Base):
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    title = Column(String, nullable=True)  # пока можно оставить nullable
+    title = Column(String, nullable=False)  # пока можно оставить nullable
     config = Column(JSON, nullable=False)  # сюда кладём sys.json / payload
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

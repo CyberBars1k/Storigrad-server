@@ -93,11 +93,13 @@ def create_story_endpoint(
       "start_phrase": "..."
     }
     """
+    title = payload.get("title")
+    config = payload.get("config")
     db_story = story.create_story(
       db=db,
       owner_id=current_user.id,
-      config=payload,
-      title=None,  # позже можно добавить поле названия на фронте
+      config=config,
+      title=title,  # позже можно добавить поле названия на фронте
     )
     return {"id": db_story.id}
 
