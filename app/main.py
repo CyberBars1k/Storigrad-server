@@ -178,8 +178,8 @@ def get_story_endpoint(
         "config": db_story.config,
         "turns": [
             {
-                "user": t.user,
-                "assistant": t.assistant,
+                "user": t.user_text,
+                "assistant": t.model_text,
             }
             for t in turns
         ],
