@@ -104,6 +104,25 @@ def create_story_endpoint(
     return {"id": db_story.id}
 
 
+@app.get("/stories/templates")
+def list_template_stories_endpoint(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Возвращает список шаблонных историй (owner_id IS NULL)."""
+    templates = story.list_template_stories(db)
+    return [
+        {
+            "id": s.id,
+            "title": s.title,
+            "config": s.config,
+            "created_at": s.created_at,
+            "updated_at": s.updated_at,
+        }
+        for s in templates
+    ]
+
+
 @app.get("/stories")
 def list_stories_endpoint(
     db: Session = Depends(get_db),

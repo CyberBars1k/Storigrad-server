@@ -2,7 +2,7 @@
 from typing import List, Optional, Dict, Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from . import models
 
@@ -11,7 +11,7 @@ from . import models
 
 def create_story(
     db: Session,
-    owner_id: int,
+    owner_id: int | None,
     config: Dict[str, Any],
     title: Optional[str] = None,
 ) -> models.Story:
@@ -28,12 +28,19 @@ def create_story(
 
 
 def get_story(db: Session, story_id: int, owner_id: int) -> Optional[models.Story]:
-    """Получить историю по id, принадлежащую конкретному пользователю."""
+    """
+    Получить историю по id, к которой есть доступ у пользователя:
+    - либо его личная (owner_id = owner_id),
+    - либо шаблонная (owner_id IS NULL).
+    """
     return (
         db.query(models.Story)
         .filter(
             models.Story.id == story_id,
-            models.Story.owner_id == owner_id,
+            or_(
+                models.Story.owner_id == owner_id,
+                models.Story.owner_id.is_(None),
+            ),
         )
         .first()
     )
@@ -44,6 +51,16 @@ def list_stories_for_user(db: Session, owner_id: int) -> List[models.Story]:
     return (
         db.query(models.Story)
         .filter(models.Story.owner_id == owner_id)
+        .order_by(models.Story.updated_at.desc())
+        .all()
+    )
+
+
+def list_template_stories(db: Session) -> List[models.Story]:
+    """Список всех шаблонных историй (owner_id IS NULL)."""
+    return (
+        db.query(models.Story)
+        .filter(models.Story.owner_id.is_(None))
         .order_by(models.Story.updated_at.desc())
         .all()
     )
