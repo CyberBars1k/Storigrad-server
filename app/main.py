@@ -5,7 +5,7 @@ from app.schemas import InferenceRequest, InferenceResponse, HealthResponse, Sto
 from app.service import get_pipeline, Pipeline
 from app.config import settings
 from pydantic import BaseModel, EmailStr
-from typing import Dict
+from typing import Dict, Optional
 import hashlib
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -22,6 +22,10 @@ from .auth import (
     create_jwt,
     get_current_user,
 )
+
+class StoryUpdate(BaseModel):
+    title: Optional[str] = None
+    config: Optional[dict] = None
 
 app = FastAPI(title="Storigrad API", version="0.1.0")
 
@@ -102,6 +106,41 @@ def create_story_endpoint(
       title=title,  # позже можно добавить поле названия на фронте
     )
     return {"id": db_story.id}
+
+@app.put("/stories/{story_id}")
+def update_story_endpoint(
+    story_id: int,
+    payload: StoryUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Обновление существующей истории.
+    Разрешено только для историй, принадлежащих текущему пользователю.
+    Можно изменять title и config.
+    """
+    db_story = story.get_story(db, story_id=story_id, owner_id=current_user.id)
+    if not db_story:
+        # либо история не существует, либо не принадлежит пользователю
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нет доступа к редактированию этой истории.",
+        )
+
+    # Обновляем только те поля, которые реально переданы
+    if payload.title is not None:
+        db_story.title = payload.title
+    if payload.config is not None:
+        db_story.config = payload.config
+
+    db.commit()
+    db.refresh(db_story)
+
+    return {
+        "id": db_story.id,
+        "title": db_story.title,
+        "config": db_story.config,
+    }
 
 
 @app.get("/stories/templates")
