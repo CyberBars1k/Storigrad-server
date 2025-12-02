@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Literal
 
 class InferenceRequest(BaseModel):
     message: str = Field(..., description="User input text")
@@ -24,3 +24,4 @@ class HealthResponse(BaseModel):
 class StoryStepIn(BaseModel):
     story_id: int = Field(..., description="ID of the story to continue")
     user_input: str = Field(..., description="Text input from user")
+    mode: Literal["dialogue", "narration", "directive"] = "dialogue"

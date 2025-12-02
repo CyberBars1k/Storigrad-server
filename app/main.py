@@ -252,5 +252,6 @@ def story_step(payload: StoryStepIn, db: Session = Depends(get_db), current_user
         story_id=payload.story_id,
         user_id=current_user.id,
         user_input=payload.user_input,
+        mode=payload.mode,
     )
     return {"reply": text}

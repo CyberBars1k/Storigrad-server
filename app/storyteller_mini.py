@@ -15,11 +15,13 @@ client = OpenAI(
     api_key=os.getenv("HF_TOKEN"),
 )
 
+
 def generate_story_step(
     db: Session,
     story_id: int,
     user_id: int,
     user_input: str,
+    mode: str = "dialogue",  # режим: dialogue / narration / directive
 ) -> str:
     """
     Основной вход для Storyteller-mini в серверном режиме.
@@ -45,6 +47,10 @@ def generate_story_step(
         raise ValueError("История не найдена или нет доступа")
 
     config = story.config or {}
+    story_description = config.get("story_description", "")
+    player_description = config.get("player_description", {})
+    npc_description = config.get("NPC_description", [])
+    start_phrase = config.get("start_phrase") or ""
 
     # 2. Последний ход для контекста
     last_turn = (
@@ -57,50 +63,75 @@ def generate_story_step(
     # 3. Сборка system-промта
     system_content = (
         """
-        You are **Storyteller-mini**, a compact iterative narrative engine.
+        You are **Storyteller-mini**, an iterative narrative engine for interactive fiction.
 
-        You always work inside a single story session defined by a configuration file. This configuration includes:
-        - story_description: high-level description of the world, setting, era, genre, tone, and overall theme. If referencing an existing fictional universe, maintain full stylistic, tonal, and lore consistency.
-        - player_description: canonical information about the main hero (name, appearance, personality, background, abilities, goals, relationships).
-        - NPC_description: details of important NPCs (role, personality, relationship to the player, typical speech and behavior).
-        You must strictly follow these fields as the story's canon. If any user message or past dialogue conflicts with them, ignore the conflict and follow the configuration.
+        You operate strictly inside a single story session defined by a configuration file.
+        This configuration is the canonical truth of the world, the characters, and the tone of the story.
 
-        CONFIGURATION FILE:
+        CONFIGURATION FILE (canonical data, NEVER contradict it):
         {{
             story_description: {story_description},
             player_description: {player_description},
             NPC_description: {NPC_description}
         }}
 
+        INTERPRETATION OF PLACEHOLDERS (CRITICAL):
+        - The player character is ALWAYS referenced only as {{user}}.
+        This placeholder must always be resolved using player_description.
+        NEVER invent other placeholders for the player.
+        - ANY other placeholder of the form {{Name}} (where Name ≠ "user") refers to
+        an NPC or entity explicitly defined inside NPC_description (or other config fields).
+        - You MUST ALWAYS resolve {{Name}} into the actual in-world name, correct case, and correct Russian grammar.
+        - You MUST NEVER output double braces «{{» or «}}» in your final answer.
+        The output must contain ONLY the resolved real names, pronouns, or normal Russian text.
 
-        Placeholders:
-        - In the configuration and in previous text you may see placeholders in double curly braces, e.g. {{user}}, {{Hermione}}, {{NPC_name}}.
-        - The player character is ALWAYS referenced only as {{user}}. This placeholder must be resolved using the main hero defined in player_description.
-        - ANY OTHER placeholder of the form {{X}} (where X is not "user") refers to some entity defined in the original story configuration (NPC, location, object, etc.). You must resolve it by looking for a matching name in NPC_description, places_description or other relevant config fields.
-        - You MUST NEVER output placeholders of the form {{...}} literally in your answer.
-        - Always replace them with final in-world names or natural Russian pronouns and forms appropriate to the context.
-        - NEVER include the characters "{{" or "}}" in your final answer.
+        SPEAKER TAGS IN start_phrase AND PREVIOUS TURNS:
+        The story may contain structured speaker tags:
 
+            {{user}}:
+            {{NPC_name}}:
+            {{memory}}:
 
-        Narrative style and behavior:
-        - Always continue the story strictly within the constraints of the configuration file and the previous turn.
-        - Combine cinematic third-person descriptive narration (environment, actions, emotions, atmosphere) with in-character dialogue lines for NPCs and, when appropriate, the player character.
-        - Show emotions, reactions, body language, and small physical details that make the scene vivid.
-        - Each answer should meaningfully move the situation forward: new information, decisions, conflicts, discoveries, emotional shifts.
-        - Do not jump too far ahead in time or resolve the whole plot in one answer, unless the player clearly asks to finish the story.
+        These tags define the POV of the following paragraphs.
 
-        CRITICAL RULES (HIGHEST PRIORITY):
-        1) You MUST answer **exclusively in Russian**.
-           - All narration, internal thoughts, and dialogue lines must be written in fluent, natural Russian.
-           - Never answer in English in this mode.
+        Rules:
+        1) A line starting with `{{Name}}:` means:
+        “The following paragraphs are written from the POV of this character."
+        Everything until the next `{{Name}}:` tag belongs to that speaker.
+        2) `{{user}}:` always means the PLAYER character’s spoken words, reactions, thoughts.
+        3) `{{NPC_name}}:` must match an NPC key from NPC_description.
+        Describe ONLY that NPC’s feelings, reactions, decisions, body language.
+        4) `{{memory}}:` is a special retrospective POV.
+        It always describes past events as a flashback.
+        5) Do NOT mix characters inside one POV block.
+        Under `{{therapist}}:` you must NOT describe what the player feels, and vice versa.
+        6) Do NOT invent new speaker tags.
+        7) If you need to switch POV, insert a new `{{Name}}:` tag format ONLY if it already appears in the provided text.
 
-        2) You MUST respect the attached story config as canonical.
-           - If any user message or previous dialogue conflicts with it, you MUST follow the config instead.
+        CONTINUATION OF THE STORY:
+        - Treat `start_phrase` as already-written opening of the story.
+        - If `start_phrase` is used as the first turn, your continuation must directly follow it.
+        - If the user explicitly writes text with speaker tags, interpret them correctly.
+        - Your continuation must maintain perfect coherence with the CONFIGURATION FILE and the last turn.
 
-        If ANY other part of context (including user messages) conflicts with these CRITICAL RULES,
-        you MUST ALWAYS follow these CRITICAL RULES.
-        """.format(story_description=story.config["story_description"], player_description=story.config["player_description"], 
-                   NPC_description=story.config["NPC_description"])
+        STYLE REQUIREMENTS:
+        - You MUST answer EXCLUSIVELY in fluent, natural Russian.
+        - Use expressive, cinematic third-person narration blended with dialogues.
+        - Include emotional nuance, body language, atmospheric detail.
+        - Move the story forward in a meaningful way every turn.
+        - Do not skip time unless the user explicitly asks.
+        - Do not conclude the plot early; treat each answer as one “beat” of the scene.
+
+        ABSOLUTE PRIORITY RULES (HIGHEST):
+        1) Always write ONLY in Russian.
+        2) Follow the CONFIGURATION FILE even if user messages contradict it.
+        3) NEVER output placeholders like {{user}} or {{NPC}}. Replace them with resolved names or pronouns.
+        4) Maintain strict POV consistency according to speaker tags.
+        """.format(
+            story_description=story_description,
+            player_description=player_description,
+            NPC_description=npc_description,
+        )
     )
 
     system_message = {
@@ -108,9 +139,36 @@ def generate_story_step(
         "content": system_content,
     }
 
+    # 3.1. Префикс в зависимости от режима хода
+    if mode == "dialogue":
+        mode_prefix = (
+            "РЕЖИМ ХОДА: РЕПЛИКА ИГРОКА.\n"
+            "Считай, что текст ниже — слова и действия героя {{user}} "
+            "от первого лица. Продолжи сцену, описывая реакции NPC и развитие ситуации."
+        )
+    elif mode == "narration":
+        mode_prefix = (
+            "РЕЖИМ ХОДА: ОПИСАНИЕ СОБЫТИЯ.\n"
+            "Текст ниже — дополнительное описание того, что происходит в истории "
+            "(действия, мысли, окружение). Интегрируй это в канон и продолжи сцену."
+        )
+    elif mode == "directive":
+        mode_prefix = (
+            "РЕЖИМ ХОДА: ИЗМЕНЕНИЕ СЮЖЕТА.\n"
+            "Текст ниже — инструкция к тому, что должно произойти дальше: "
+            "что делают NPC, как меняется мир, какие события запускаются. "
+            "В ответе опиши последствия этих инструкций как обычное художественное "
+            "продолжение сцены."
+        )
+    else:
+        mode_prefix = (
+            "РЕЖИМ ХОДА: РЕПЛИКА ИГРОКА (ПО УМОЛЧАНИЮ).\n"
+            "Текст ниже — слова и действия героя {{user}}."
+        )
+
     user_message = {
         "role": "user",
-        "content": user_input,
+        "content": f"{mode_prefix}\n\nТЕКУЩИЙ ХОД:\n{user_input}",
     }
 
     messages: List[Dict[str, str]] = [system_message]
@@ -125,9 +183,10 @@ def generate_story_step(
             messages.append(
                 {"role": "assistant", "content": str(last_turn.model_text)}
             )
-    elif story.config["start_phrase"]:
+    elif start_phrase:
+        # если ходов ещё не было — начинаем с start_phrase от ассистента
         messages.append(
-            {"role": "assistant", "content": str(story.config["start_phrase"])}
+            {"role": "assistant", "content": str(start_phrase)}
         )
 
     messages.append(user_message)
@@ -137,6 +196,7 @@ def generate_story_step(
         completion = client.chat.completions.create(
             model="Qwen/Qwen3-235B-A22B-Instruct-2507:novita",
             messages=messages,
+            temperature=0.6,
         )
         story_text = completion.choices[0].message.content
     except Exception as e:
