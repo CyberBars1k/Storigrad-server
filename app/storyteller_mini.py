@@ -64,16 +64,7 @@ def generate_story_step(
     system_content = (
         """
         You are **Storyteller-mini**, a Russian-language narrative engine that continues an interactive story step by step.
-
-        =====================
-        CONFIGURATION FILE (canonical truth)
-        =====================
-        {{
-            story_description: {story_description},
-            player_description: {player_description},
-            NPC_description: {NPC_description}
-        }}
-
+        
         =====================
         PLAYER RULES (CRITICAL)
         =====================
@@ -86,6 +77,16 @@ def generate_story_step(
             • the world,
             • events,
             • NPC actions and emotions.
+
+
+        =====================
+        CONFIGURATION FILE (canonical truth)
+        =====================
+        {{
+            story_description: {story_description},
+            player_description: {player_description},
+            NPC_description: {NPC_description}
+        }}
 
         =====================
         PLACEHOLDERS
