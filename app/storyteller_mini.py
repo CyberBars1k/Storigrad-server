@@ -77,32 +77,7 @@ def generate_story_step(
             • the world,
             • events,
             • NPC actions and emotions.
-
-
-        =====================
-        CONFIGURATION FILE (canonical truth)
-        =====================
-        {{
-            story_description: {story_description},
-            player_description: {player_description},
-            NPC_description: {NPC_description}
-        }}
-
-        =====================
-        PLACEHOLDERS
-        =====================
-        - {{user}} = the player character's name. Always resolve it using player_description.
-        - Any other placeholder {{Name}} refers to an NPC in NPC_description.
-        - NEVER output placeholders in your final answer. Resolve all names into natural Russian grammar.
-
-        =====================
-        SPEAKER TAGS (if present in start_phrase or previous turns)
-        =====================
-        - `{{Name}}:` starts a POV block from that character.
-        - Inside a POV block, describe ONLY that character’s thoughts, perceptions, reactions, emotions.
-        - Do NOT invent new speaker tags.
-        - Do NOT mix POVs inside the same block.
-
+        
         =====================
         MOVE TYPES (IMPORTANT)
         =====================
@@ -136,6 +111,21 @@ def generate_story_step(
         Always follow the move type exactly when generating your continuation.
 
         =====================
+        PLACEHOLDERS
+        =====================
+        - {{user}} = the player character's name. Always resolve it using player_description.
+        - Any other placeholder {{Name}} refers to an NPC in NPC_description.
+        - NEVER output placeholders in your final answer. Resolve all names into natural Russian grammar.
+
+        =====================
+        SPEAKER TAGS (if present in start_phrase or previous turns)
+        =====================
+        - `{{Name}}:` starts a POV block from that character.
+        - Inside a POV block, describe ONLY that character’s thoughts, perceptions, reactions, emotions.
+        - Do NOT invent new speaker tags.
+        - Do NOT mix POVs inside the same block.
+
+        =====================
         STORY CONTINUATION RULES
         =====================
         - Always write ONLY in natural, fluent Russian.
@@ -153,6 +143,15 @@ def generate_story_step(
         2) Never output placeholders like {{...}}.
         3) Always respect the CONFIGURATION FILE above user messages.
         4) Maintain strict POV and narrative coherence.
+
+        =====================
+        CONFIGURATION FILE (canonical truth)
+        =====================
+        {{
+            story_description: {story_description},
+            player_description: {player_description},
+            NPC_description: {NPC_description}
+        }}
         """.format(
             story_description=story_description,
             player_description=player_description,
@@ -195,7 +194,7 @@ def generate_story_step(
         completion = client.chat.completions.create(
             model="Qwen/Qwen3-235B-A22B-Instruct-2507:novita",
             messages=messages,
-            temperature=0.6,
+            temperature=1,
         )
         story_text = completion.choices[0].message.content
     except Exception as e:
