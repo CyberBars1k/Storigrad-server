@@ -114,7 +114,7 @@ def generate_story_step(
         - NEVER write dialogue, thoughts, or actions for {{user}}.
         - Output format:
             • 1–2 short NPC dialogue lines (in quotes),
-            • + 1–3 short descriptive sentences (actions, reactions, atmosphere).
+            • 1–3 short descriptive sentences (actions, reactions, atmosphere) IF needed. DO NOT describe atmosphere in each response.
         - Keep responses compact and cinematic.
 
         2. narration
