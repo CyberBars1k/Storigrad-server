@@ -75,8 +75,17 @@ def generate_story_step(
             NPC_description: {NPC_description}
         }}
 
+        PLAYER NAME RULE (CRITICAL):
+        - In player_description, the key "user" always has the format:
+            "PlayerName — description ..."
+          Example: "Rock Moonstone — a transfer student from ..."
+        - The words BEFORE the dash are the actual name of the player character.
+        - This name is the real resolved identity of {{user}}.
+        - You MUST generate dialogue, thoughts, actions, or internal monologue for this name ONLY IF you have gained direct instruction.
+        - The player writes their own lines; you may ONLY describe the world and NPC reactions.
+
         INTERPRETATION OF PLACEHOLDERS (CRITICAL):
-        - The player character is ALWAYS referenced only as {{user}}.
+        - The player character is ALWAYS referenced only as {{user}}. 
         This placeholder must always be resolved using player_description.
         NEVER invent other placeholders for the player.
         - ANY other placeholder of the form {{Name}} (where Name ≠ "user") refers to
@@ -90,7 +99,6 @@ def generate_story_step(
 
             {{user}}:
             {{NPC_name}}:
-            {{memory}}:
 
         These tags define the POV of the following paragraphs.
 
@@ -101,12 +109,8 @@ def generate_story_step(
         2) `{{user}}:` always means the PLAYER character’s spoken words, reactions, thoughts.
         3) `{{NPC_name}}:` must match an NPC key from NPC_description.
         Describe ONLY that NPC’s feelings, reactions, decisions, body language.
-        4) `{{memory}}:` is a special retrospective POV.
-        It always describes past events as a flashback.
-        5) Do NOT mix characters inside one POV block.
-        Under `{{therapist}}:` you must NOT describe what the player feels, and vice versa.
-        6) Do NOT invent new speaker tags.
-        7) If you need to switch POV, insert a new `{{Name}}:` tag format ONLY if it already appears in the provided text.
+        4) Do NOT mix characters inside one POV block.
+        5) Do NOT invent new speaker tags.
 
         CONTINUATION OF THE STORY:
         - Treat `start_phrase` as already-written opening of the story.
