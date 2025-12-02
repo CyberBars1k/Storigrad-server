@@ -192,7 +192,7 @@ def generate_story_step(
     # 4. Вызов модели
     try:
         completion = client.chat.completions.create(
-            model="Qwen/Qwen3-235B-A22B-Instruct-2507:novita",
+            model="moonshotai/Kimi-K2-Instruct-0905:groq",
             messages=messages,
             temperature=1,
         )
