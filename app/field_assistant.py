@@ -30,6 +30,16 @@ async def generate_field_value(
     Генерация текста для конкретного поля (описание истории / герой / npc / стартовая фраза).
     """
 
+    field_map = {
+        "story_description": "description",
+        "player_description": "player",
+        "npc_description": "npc",
+        "start_phrase": "start",
+    }
+
+    # Нормализуем тип поля до одного из ключей prompt_templates
+    internal_field_type = field_map.get(field_type, field_type)
+
     # Подготовка текста конфигурации истории для системного промта
     config_text = ""
     if story_config is not None:
@@ -66,7 +76,7 @@ async def generate_field_value(
         ),
     }
 
-    template = prompt_templates.get(field_type, prompt_templates["description"])
+    template = prompt_templates.get(internal_field_type, prompt_templates["description"])
     user_message = template.format(user_input=user_prompt.strip())
 
     system_prompt = SYSTEM_PROMPT + config_text
@@ -77,10 +87,10 @@ async def generate_field_value(
     ]
 
     completion = client.chat.completions.create(
-        model="Qwen/Qwen3-235B-A22B:novita",
+        model="Qwen/Qwen3-235B-A22B-Instruct-2507:novita",
         messages=messages,
         temperature=0.7,
         max_tokens=512,
     )
 
-    return completion.choices[0].message["content"]
+    return completion.choices[0].message.content
