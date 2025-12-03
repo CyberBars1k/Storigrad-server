@@ -5,7 +5,7 @@ from app.schemas import InferenceRequest, InferenceResponse, HealthResponse, Sto
 from app.service import get_pipeline, Pipeline
 from app.config import settings
 from pydantic import BaseModel, EmailStr
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 import hashlib
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -259,7 +259,7 @@ from .field_assistant import generate_field_value
 class FieldAssistantRequest(BaseModel):
     prompt: str
     field_type: str
-    story_config: Optional[dict] = None
+    story_config: Optional[Dict[str, Any]] = None
 
 @app.post("/api/field_assistant")
 def field_assistant(req: FieldAssistantRequest, current_user=Depends(get_current_user)):
