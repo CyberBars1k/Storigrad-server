@@ -254,8 +254,6 @@ def story_step(payload: StoryStepIn, db: Session = Depends(get_db), current_user
     )
     return {"reply": text}
 
-from .field_assistant import generate_field_value
-
 class FieldAssistantRequest(BaseModel):
     prompt: str
     field_type: str

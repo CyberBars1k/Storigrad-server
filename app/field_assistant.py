@@ -1,11 +1,13 @@
 import os
-import json
+from dotenv import load_dotenv
 from openai import OpenAI
+import json
 
+load_dotenv()
 # Клиент HuggingFace Router
 client = OpenAI(
-    base_url="https://router.hf.co/v1",
-    api_key=os.environ["HF_TOKEN"],
+    base_url="https://router.huggingface.co/v1",
+    api_key=os.getenv("HF_TOKEN"),
 )
 
 SYSTEM_PROMPT = """
