@@ -22,6 +22,7 @@ from .auth import (
     create_jwt,
     get_current_user,
 )
+from .field_assistant import generate_field_value
 
 class StoryUpdate(BaseModel):
     title: Optional[str] = None
@@ -252,3 +253,22 @@ def story_step(payload: StoryStepIn, db: Session = Depends(get_db), current_user
         mode=payload.mode,
     )
     return {"reply": text}
+
+from .field_assistant import generate_field_value
+
+class FieldAssistantRequest(BaseModel):
+    prompt: str
+    field_type: str
+    story_config: Optional[dict] = None
+
+@app.post("/api/field_assistant")
+def field_assistant(req: FieldAssistantRequest, current_user=Depends(get_current_user)):
+    """
+    Генерация текста для одного из полей истории с помощью AI.
+    """
+    result = generate_field_value(
+        user_prompt=req.prompt,
+        field_type=req.field_type,
+        story_config=req.story_config,
+    )
+    return {"result": result}
