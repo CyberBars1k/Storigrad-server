@@ -262,7 +262,7 @@ class FieldAssistantRequest(BaseModel):
     story_config: Optional[Dict[str, Any]] = None
 
 @app.post("/api/field_assistant")
-def field_assistant(req: FieldAssistantRequest, current_user=Depends(get_current_user)):
+async def field_assistant(req: FieldAssistantRequest, current_user=Depends(get_current_user)):
     """
     Генерация текста для одного из полей истории с помощью AI.
     """
