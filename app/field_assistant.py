@@ -89,8 +89,6 @@ async def generate_field_value(
     completion = client.chat.completions.create(
         model="Qwen/Qwen3-235B-A22B-Instruct-2507:novita",
         messages=messages,
-        temperature=0.7,
-        max_tokens=512,
     )
 
     return completion.choices[0].message.content

@@ -266,7 +266,7 @@ async def field_assistant(req: FieldAssistantRequest, current_user=Depends(get_c
     """
     Генерация текста для одного из полей истории с помощью AI.
     """
-    result = generate_field_value(
+    result = await generate_field_value(
         user_prompt=req.prompt,
         field_type=req.field_type,
         story_config=req.story_config,
