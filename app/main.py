@@ -207,7 +207,10 @@ def add_turn_endpoint(
         model_text=model_text,
     )
 
-    return {"id": turn.id, "idx": turn.idx}
+    return {
+        "id": turn.id,
+        "turns": turn.turns,
+    }
 
 
 @app.get("/stories/{story_id}")
@@ -234,13 +237,7 @@ def get_story_endpoint(
         "id": db_story.id,
         "title": db_story.title,
         "config": db_story.config,
-        "turns": [
-            {
-                "user": t.user_text,
-                "assistant": t.model_text,
-            }
-            for t in turns
-        ],
+        "turns": turns,
     }
 
 

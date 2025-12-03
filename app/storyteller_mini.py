@@ -4,9 +4,8 @@ from typing import List, Dict, Any
 from dotenv import load_dotenv
 from openai import OpenAI
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
-from . import models
+from . import models, story as story_crud
 
 load_dotenv()
 
@@ -52,13 +51,8 @@ def generate_story_step(
     npc_description = config.get("NPC_description", [])
     start_phrase = config.get("start_phrase") or ""
 
-    # 2. Последний ход для контекста
-    last_turn = (
-        db.query(models.StoryTurn)
-        .filter(models.StoryTurn.story_id == story_id)
-        .order_by(models.StoryTurn.idx.desc())
-        .first()
-    )
+    # 2. История ходов для контекста (берём все доступные пары из JSON-массива turns)
+    all_turns = story_crud.get_turns(db, story_id=story_id, limit=100000)
 
     # 3. Сборка system-промта
     system_content = (
@@ -160,22 +154,20 @@ def generate_story_step(
 
     messages: List[Dict[str, str]] = [system_message]
 
-    # Если есть предыдущий ход — добавляем его в контекст
-    if last_turn:
-        if last_turn.user_text:
-            messages.append(
-                {"role": "user", "content": str(last_turn.user_text)}
-            )
-        if last_turn.model_text:
-            messages.append(
-                {"role": "assistant", "content": str(last_turn.model_text)}
-            )
+    # Если есть предыдущие ходы — добавляем всю историю в контекст по порядку
+    if all_turns:
+        for turn in all_turns:
+            user_prev = turn.get("user_text")
+            model_prev = turn.get("model_text")
+            if user_prev:
+                messages.append({"role": "user", "content": str(user_prev)})
+            if model_prev:
+                messages.append({"role": "assistant", "content": str(model_prev)})
     elif start_phrase:
         # если ходов ещё не было — начинаем с start_phrase от ассистента
-        messages.append(
-            {"role": "assistant", "content": str(start_phrase)}
-        )
+        messages.append({"role": "assistant", "content": str(start_phrase)})
 
+    # Текущий ход пользователя добавляем в конец
     messages.append(user_message)
 
     # 4. Вызов модели
@@ -190,22 +182,12 @@ def generate_story_step(
         print("LLM error in generate_story_step:", repr(e))
         return "Сейчас рассказчик недоступен, попробуйте ещё раз позже."
 
-    # 5. Сохраняем ход в БД
-    last_idx = (
-        db.query(func.max(models.StoryTurn.idx))
-        .filter(models.StoryTurn.story_id == story_id)
-        .scalar()
-    )
-    next_idx = (last_idx or 0) + 1
-
-    new_turn = models.StoryTurn(
+    # 5. Сохраняем ход в БД через story_crud (JSON-массив turns)
+    story_crud.add_turn(
+        db=db,
         story_id=story_id,
-        idx=next_idx,
         user_text=user_input,
         model_text=story_text,
     )
-
-    db.add(new_turn)
-    db.commit()
 
     return story_text

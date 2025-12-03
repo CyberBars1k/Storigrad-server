@@ -75,46 +75,76 @@ def add_turn(
     model_text: str,
 ) -> models.StoryTurn:
     """
-    Добавить ход к истории:
-    - user_text: то, что написал пользователь
-    - model_text: ответ нейросети
+    Добавить ход к истории.
+
+    Новая модель хранения:
+    - В таблице story_turns для каждой истории может быть одна запись,
+      в поле `turns` хранится JSON-массив объектов:
+        [
+          {"user_text": "...", "model_text": "..."},
+          ...
+        ]
     """
-    # определяем следующий индекс хода
-    last_idx = (
-        db.query(func.max(models.StoryTurn.idx))
+    # Пытаемся найти существующую запись с ходами для этой истории
+    turn_row = (
+        db.query(models.StoryTurn)
         .filter(models.StoryTurn.story_id == story_id)
-        .scalar()
+        .order_by(models.StoryTurn.id.asc())
+        .first()
     )
-    next_idx = (last_idx or 0) + 1
 
-    turn = models.StoryTurn(
-        story_id=story_id,
-        idx=next_idx,
-        user_text=user_text,
-        model_text=model_text,
+    # Если ещё не было записей, создаём новую
+    if not turn_row:
+        turn_row = models.StoryTurn(
+            story_id=story_id,
+            turns=[],
+        )
+        db.add(turn_row)
+        db.flush()  # чтобы получить id при необходимости
+
+    # Обновляем массив ходов
+    current_turns = list(turn_row.turns or [])
+    current_turns.append(
+        {
+            "user_text": user_text,
+            "model_text": model_text,
+        }
     )
-    db.add(turn)
+    turn_row.turns = current_turns
 
-    # обновим updated_at истории
+    # Обновим updated_at истории
     db.query(models.Story).filter(models.Story.id == story_id).update(
         {"updated_at": func.now()}
     )
 
     db.commit()
-    db.refresh(turn)
-    return turn
+    db.refresh(turn_row)
+    return turn_row
 
 
 def get_turns(
     db: Session,
     story_id: int,
     limit: int = 50,
-) -> List[models.StoryTurn]:
-    """Получить последние N ходов истории (по умолчанию 50)."""
-    return (
+) -> List[Dict[str, Any]]:
+    """
+    Получить последние N ходов истории (по умолчанию 50).
+
+    Возвращает список словарей формата:
+      {"user_text": "...", "model_text": "..."}
+    """
+    turn_row = (
         db.query(models.StoryTurn)
         .filter(models.StoryTurn.story_id == story_id)
-        .order_by(models.StoryTurn.idx.desc())
-        .limit(limit)
-        .all()[::-1]  # вернуть в прямом порядке
+        .order_by(models.StoryTurn.id.asc())
+        .first()
     )
+
+    if not turn_row or not turn_row.turns:
+        return []
+
+    all_turns = list(turn_row.turns)
+    if len(all_turns) <= limit:
+        return all_turns
+    # последние N ходов
+    return all_turns[-limit:]

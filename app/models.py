@@ -42,7 +42,7 @@ class Story(Base):
         "StoryTurn",
         back_populates="story",
         cascade="all, delete-orphan",
-        order_by="StoryTurn.idx",
+        order_by="StoryTurn.id",
     )
 
 
@@ -50,12 +50,7 @@ class StoryTurn(Base):
     __tablename__ = "story_turns"
 
     id = Column(Integer, primary_key=True, index=True)
-    story_id = Column(Integer, ForeignKey("stories.id"), nullable=False)
-
-    idx = Column(Integer, nullable=False)  # номер хода в истории
-    user_text = Column(Text, nullable=False)
-    model_text = Column(Text, nullable=False)
-
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    story_id = Column(Integer, ForeignKey("stories.id"), nullable=False, index=True)
+    turns = Column(JSON, nullable=False, default=list)
 
     story = relationship("Story", back_populates="turns")
