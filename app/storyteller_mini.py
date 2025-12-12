@@ -70,30 +70,12 @@ def generate_story_step(
         raise ValueError("Не задан YANDEX_CLOUD_PROJECT")
 
     # 3. Resolve user name from player_description
-    resolved_user_name = ""
-    if isinstance(player_description, dict) and "user" in player_description:
-        user_val = player_description["user"]
-        if isinstance(user_val, str):
-            if "—" in user_val:
-                resolved_user_name = user_val.split("—", 1)[0].strip()
-            elif "-" in user_val:
-                resolved_user_name = user_val.split("-", 1)[0].strip()
-            else:
-                resolved_user_name = user_val.strip()
-    elif isinstance(player_description, str):
-        user_val = player_description
-        if "—" in user_val:
-            resolved_user_name = user_val.split("—", 1)[0].strip()
-        elif "-" in user_val:
-            resolved_user_name = user_val.split("-", 1)[0].strip()
-        else:
-            resolved_user_name = user_val.strip()
 
     # 4. Build variables dict for agent prompt
     variables = {
         "NPC_description": npc_description,
         "story_description": story_description,
-        "user": resolved_user_name,
+        "user": player_description["user"],
         "player_description": player_description,
     }
 
