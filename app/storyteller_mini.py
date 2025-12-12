@@ -80,7 +80,7 @@ def generate_story_step(
     }
 
     # 5. Build input string
-    input_text = f"MODE: {mode}\nUSER_TURN: {user_input}"
+    input_text = f"Тип хода: {mode}\nХод пользователя: {user_input}"
 
     # 6. Call Yandex Cloud responses.create
     try:
