@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 import json
+import asyncio
 
 load_dotenv()
 # Клиент HuggingFace Router
@@ -15,6 +16,8 @@ SYSTEM_PROMPT = """
 Ты всегда учитываешь текущую конфигурацию истории, которая передана в системных сообщениях в формате JSON.
 Всегда строго соблюдай формат и ограничения по длине, указанные в запросе.
 Пиши по-русски, литературным, но понятным языком. Не используй списки и не добавляй пояснений от себя.
+Не используй много творческих оборотов. Пиши так, будто продолжаешь идею пользователя.
+Если пользователь использует какую-то существующую вселенную, уточняй информацию об этой вселенной в интернете.
 """
 
 PLACEHOLDER_INSTRUCTION = (
@@ -61,7 +64,8 @@ async def generate_field_value(
         ),
         "player": (
             "Сделай описание персонажа игрока объёмом не более 5 предложений. "
-            "Пиши в третьем лице. Всегда начинай описание текста с имени персонажа. Используй следующую информацию пользователя: {user_input}"
+            "Пиши в третьем лице. Всегда начинай описание текста с имени персонажа.  Используй"
+            " следующую информацию пользователя: {user_input}"
             + PLACEHOLDER_INSTRUCTION
         ),
         "npc": (
@@ -91,6 +95,26 @@ async def generate_field_value(
     completion = client.chat.completions.create(
         model="Qwen/Qwen3-235B-A22B-Instruct-2507:novita",
         messages=messages,
+        temperature=0.1
     )
 
     return completion.choices[0].message.content
+
+
+if __name__ == "__main__":
+    async def main():
+        # Пример конфигурации истории
+        example_story_config = {
+        }
+
+        user_prompt = ""
+
+        print("\n=== Тест: персонаж игрока ===")
+        player = await generate_field_value(
+            user_prompt="Рок Мунстоун - персонаж из вселенной Genshin Impact, близкий друг {{durin}}. Помогает ему осваиваться в Тейвате",
+            field_type="player_description",
+            story_config=example_story_config,
+        )
+        print(player)
+
+    asyncio.run(main())
