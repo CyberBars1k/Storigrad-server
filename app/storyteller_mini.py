@@ -1,7 +1,8 @@
 import os
-from typing import List, Dict, Any
+from typing import Any
 from dotenv import load_dotenv
 import copy
+import json
 import openai
 from sqlalchemy.orm import Session
 
@@ -55,8 +56,6 @@ def generate_story_step(
     story_description = config.get("story_description", "")
     player_description = config.get("player_description", {})
     npc_description = config.get("NPC_description", [])
-    start_phrase = config.get("start_phrase") or ""
-
     yc_agent_prompt_id = config.get("yc_agent_prompt_id") or os.getenv("YANDEX_CLOUD_AGENT_PROMPT_ID")
     yc_previous_response_id = config.get("yc_previous_response_id")
 
@@ -69,18 +68,33 @@ def generate_story_step(
     if not os.getenv("YANDEX_CLOUD_PROJECT"):
         raise ValueError("Не задан YANDEX_CLOUD_PROJECT")
 
-    # 3. Resolve user name from player_description
+    # 3. Resolve user name from player_description (agent variables expect plain strings)
+    resolved_user_name = ""
+    user_field_val: Any = ""
+    if isinstance(player_description, dict):
+        user_field_val = player_description.get("user", "")
+    elif isinstance(player_description, str):
+        user_field_val = player_description
+
+    if isinstance(user_field_val, str):
+        if "—" in user_field_val:
+            resolved_user_name = user_field_val.split("—", 1)[0].strip()
+        elif "-" in user_field_val:
+            resolved_user_name = user_field_val.split("-", 1)[0].strip()
+        else:
+            resolved_user_name = user_field_val.strip()
 
     # 4. Build variables dict for agent prompt
     variables = {
-        "NPC_description": npc_description,
-        "story_description": story_description,
-        "user": player_description["user"],
-        "player_description": player_description,
+        "NPC_description": json.dumps(npc_description, ensure_ascii=False),
+        "story_description": str(story_description),
+        "user": resolved_user_name,
+        "player_description": json.dumps(player_description, ensure_ascii=False),
+        "mode": str(mode),
     }
 
     # 5. Build input string
-    input_text = f"Тип хода: {mode}\nХод пользователя: {user_input}"
+    input_text = f"MODE: {mode}\nUSER_TURN: {user_input}".strip()
 
     # 6. Call Yandex Cloud responses.create
     try:
@@ -92,7 +106,13 @@ def generate_story_step(
             kwargs["previous_response_id"] = yc_previous_response_id
 
         response = client.responses.create(**kwargs)
-        story_text = getattr(response, "output_text", "") or ""
+        # Yandex docs show both `response.output_text` and `response.output[0].content[0].text` depending on mode.
+        story_text = getattr(response, "output_text", None)
+        if not story_text:
+            try:
+                story_text = response.output[0].content[0].text
+            except Exception:
+                story_text = ""
     except Exception as e:
         print("Yandex Cloud error in generate_story_step:", repr(e))
         return "Сейчас рассказчик недоступен, попробуйте ещё раз позже."
