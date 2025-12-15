@@ -61,6 +61,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)) -> AuthRespons
         username=req.username,
         password_hash=hash_password(req.password),
         plan="Free",
+        stories_count=0,
     )
     db.add(user)
     db.commit()
@@ -107,6 +108,10 @@ def create_story_endpoint(
       config=config,
       title=title,  # позже можно добавить поле названия на фронте
     )
+    db.query(models.User).filter(models.User.id == current_user.id).update(
+        {models.User.stories_count: models.User.stories_count + 1}
+    )
+    db.commit()
     return {"id": db_story.id}
 
 @app.put("/stories/{story_id}")
@@ -278,23 +283,26 @@ class ProfileUserOut(BaseModel):
     username: str
     created_at: datetime
     plan: str
+    stories_count: int
 
 class ProfileResponse(BaseModel):
     user: ProfileUserOut
 
 @app.get("/api/profile", response_model=ProfileResponse)
-def get_profile(current_user=Depends(get_current_user)):
+def get_profile(
+    current_user=Depends(get_current_user),
+):
     """
     Возвращает профиль текущего пользователя.
     """
-    # Пока тариф не хранится в БД — всегда Free
-    plan: Literal["Free", "Pro", "Studio"] = "Free"
 
     user_out = ProfileUserOut(
         id=current_user.id,
         email=current_user.email,
         username=current_user.username,
         created_at=current_user.created_at,
-        plan = current_user.plan,
+        plan=current_user.plan,
+        stories_count=current_user.stories_count,
     )
+
     return ProfileResponse(user=user_out)
