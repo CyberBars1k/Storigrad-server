@@ -277,10 +277,10 @@ class ProfileUserOut(BaseModel):
     email: EmailStr
     username: str
     created_at: datetime
+    plan: str
 
 class ProfileResponse(BaseModel):
     user: ProfileUserOut
-    plan: str
 
 @app.get("/api/profile", response_model=ProfileResponse)
 def get_profile(current_user=Depends(get_current_user)):
