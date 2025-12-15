@@ -5,7 +5,7 @@ from app.schemas import InferenceRequest, InferenceResponse, HealthResponse, Sto
 from app.service import get_pipeline, Pipeline
 from app.config import settings
 from pydantic import BaseModel, EmailStr
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, Literal
 import hashlib
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -60,6 +60,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)) -> AuthRespons
         email=email,
         username=req.username,
         password_hash=hash_password(req.password),
+        plan="Free",
     )
     db.add(user)
     db.commit()
@@ -270,3 +271,30 @@ async def field_assistant(req: FieldAssistantRequest, current_user=Depends(get_c
         story_config=req.story_config,
     )
     return {"result": result}
+
+class ProfileUserOut(BaseModel):
+    id: int
+    email: EmailStr
+    username: str
+    created_at: datetime
+
+class ProfileResponse(BaseModel):
+    user: ProfileUserOut
+    plan: str
+
+@app.get("/api/profile", response_model=ProfileResponse)
+def get_profile(current_user=Depends(get_current_user)):
+    """
+    Возвращает профиль текущего пользователя.
+    """
+    # Пока тариф не хранится в БД — всегда Free
+    plan: Literal["Free", "Pro", "Studio"] = "Free"
+
+    user_out = ProfileUserOut(
+        id=current_user.id,
+        email=current_user.email,
+        username=current_user.username,
+        created_at=current_user.created_at,
+        plan = current_user.plan,
+    )
+    return ProfileResponse(user=user_out)
