@@ -288,6 +288,11 @@ class ProfileUserOut(BaseModel):
 class ProfileResponse(BaseModel):
     user: ProfileUserOut
 
+class UserUpdateRequest(BaseModel):
+    email: Optional[EmailStr] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+
 @app.get("/api/profile", response_model=ProfileResponse)
 def get_profile(
     current_user=Depends(get_current_user),
@@ -295,6 +300,66 @@ def get_profile(
     """
     Возвращает профиль текущего пользователя.
     """
+
+    user_out = ProfileUserOut(
+        id=current_user.id,
+        email=current_user.email,
+        username=current_user.username,
+        created_at=current_user.created_at,
+        plan=current_user.plan,
+        stories_count=current_user.stories_count,
+    )
+
+    return ProfileResponse(user=user_out)
+
+@app.post("/api/user/update", response_model=ProfileResponse)
+def update_user(
+    req: UserUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Обновление данных текущего пользователя.
+    Разрешённые поля: email, username, password.
+    Поля опциональны — обновляются только переданные.
+    """
+
+    # email
+    if req.email is not None:
+        new_email = str(req.email).strip().lower()
+        if new_email:
+            existing = (
+                db.query(models.User)
+                .filter(models.User.email == new_email, models.User.id != current_user.id)
+                .first()
+            )
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="User with this email already exists.",
+                )
+            current_user.email = new_email
+
+    # username
+    if req.username is not None:
+        new_username = req.username.strip()
+        if new_username:
+            current_user.username = new_username
+
+    # password
+    if req.password is not None:
+        new_password = req.password.strip()
+        if new_password:
+            if len(new_password) < 6:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Password must be at least 6 characters.",
+                )
+            current_user.password_hash = hash_password(new_password)
+
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
 
     user_out = ProfileUserOut(
         id=current_user.id,
