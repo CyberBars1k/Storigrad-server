@@ -14,11 +14,13 @@ def create_story(
     owner_id: int | None,
     config: Dict[str, Any],
     title: Optional[str] = None,
+    genre: str = "Fantasy",
 ) -> models.Story:
     """Создать историю и сохранить её конфиг (sys.json/payload)."""
     story = models.Story(
         owner_id=owner_id,
         title=title,
+        genre=genre,
         config=config,
     )
     db.add(story)
@@ -47,23 +49,19 @@ def get_story(db: Session, story_id: int, owner_id: int) -> Optional[models.Stor
 
 
 def list_stories_for_user(db: Session, owner_id: int) -> List[models.Story]:
-    """Список всех историй пользователя."""
+    """Список всех историй пользователя (включая шаблоны)."""
     return (
         db.query(models.Story)
-        .filter(models.Story.owner_id == owner_id)
+        .filter(
+            or_(
+                models.Story.owner_id == owner_id,
+                models.Story.owner_id.is_(None),
+            )
+        )
         .order_by(models.Story.updated_at.desc())
         .all()
     )
 
-
-def list_template_stories(db: Session) -> List[models.Story]:
-    """Список всех шаблонных историй (owner_id IS NULL)."""
-    return (
-        db.query(models.Story)
-        .filter(models.Story.owner_id.is_(None))
-        .order_by(models.Story.updated_at.desc())
-        .all()
-    )
 
 
 # ---------- Ходы ----------
