@@ -102,9 +102,11 @@ def create_story_endpoint(
     """
     title = payload.get("title")
     config = payload.get("config")
+    genre = payload.get("genre")
     db_story = story.create_story(
       db=db,
       owner_id=current_user.id,
+      genre=genre,
       config=config,
       title=title,  # позже можно добавить поле названия на фронте
     )
@@ -182,6 +184,7 @@ def list_stories_endpoint(
             "config": s.config,
             "created_at": s.created_at,
             "updated_at": s.updated_at,
+            "genre": s.genre,
         }
         for s in stories
     ]
