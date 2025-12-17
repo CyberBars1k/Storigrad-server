@@ -161,6 +161,7 @@ def list_stories_endpoint(
     return [
         {
             "id": s.id,
+            "owner_id": s.owner_id,
             "title": s.title,
             "config": s.config,
             "created_at": s.created_at,
