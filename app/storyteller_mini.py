@@ -5,6 +5,7 @@ import copy
 import json
 import openai
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from . import models, story as story_crud
 
@@ -45,7 +46,10 @@ def generate_story_step(
         db.query(models.Story)
         .filter(
             models.Story.id == story_id,
-            models.Story.owner_id == user_id,
+            or_(
+                models.Story.owner_id == user_id,
+                models.Story.owner_id.is_(None),
+            ),
         )
         .first()
     )
