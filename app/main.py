@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from time import perf_counter
 from app.schemas import InferenceRequest, InferenceResponse, HealthResponse, StoryStepIn
@@ -242,12 +243,16 @@ def get_story_endpoint(
 
         db_story = copied_story
 
+        copy_id = copied_story.id
+
     # Проверка доступа: после копирования история обязана принадлежать пользователю
     if db_story.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Нет доступа к истории")
-
+    
     # Получаем ходы уже КОПИИ истории
     turns = story.get_turns(db, story_id=db_story.id, user_id=current_user)
+
+    return RedirectResponse(url=f"/stories/{copy_id}", status_code=307)
 
     return {
         "id": db_story.id,
