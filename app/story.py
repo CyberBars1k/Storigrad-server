@@ -69,24 +69,18 @@ def list_stories_for_user(db: Session, owner_id: int) -> List[models.Story]:
 def add_turn(
     db: Session,
     story_id: int,
+    user_id: int,
     user_text: str,
     model_text: str,
+    yc_previous_response_id: str | None = None,
 ) -> models.StoryTurn:
-    """
-    Добавить ход к истории.
-
-    Новая модель хранения:
-    - В таблице story_turns для каждой истории может быть одна запись,
-      в поле `turns` хранится JSON-массив объектов:
-        [
-          {"user_text": "...", "model_text": "..."},
-          ...
-        ]
-    """
-    # Пытаемся найти существующую запись с ходами для этой истории
+    # Пытаемся найти существующую запись с ходами для этой истории и пользователя
     turn_row = (
         db.query(models.StoryTurn)
-        .filter(models.StoryTurn.story_id == story_id)
+        .filter(
+            models.StoryTurn.story_id == story_id,
+            models.StoryTurn.user_id == user_id,
+        )
         .order_by(models.StoryTurn.id.asc())
         .first()
     )
@@ -95,7 +89,9 @@ def add_turn(
     if not turn_row:
         turn_row = models.StoryTurn(
             story_id=story_id,
+            user_id=user_id,
             turns=[],
+            yc_previous_response_id=yc_previous_response_id,
         )
         db.add(turn_row)
         db.flush()  # чтобы получить id при необходимости
@@ -110,7 +106,11 @@ def add_turn(
     )
     turn_row.turns = current_turns
 
-    # Обновим updated_at истории
+    # Сохраняем previous_response_id именно в story_turns (per user, per story)
+    if yc_previous_response_id:
+        turn_row.yc_previous_response_id = yc_previous_response_id
+
+    # Обновим updated_at истории (без хранения yc_previous_response_id в stories)
     db.query(models.Story).filter(models.Story.id == story_id).update(
         {"updated_at": func.now()}
     )
@@ -123,6 +123,7 @@ def add_turn(
 def get_turns(
     db: Session,
     story_id: int,
+    user_id: int,
     limit: int = 50,
 ) -> List[Dict[str, Any]]:
     """
@@ -133,7 +134,10 @@ def get_turns(
     """
     turn_row = (
         db.query(models.StoryTurn)
-        .filter(models.StoryTurn.story_id == story_id)
+        .filter(
+            models.StoryTurn.story_id == story_id,
+            models.StoryTurn.user_id == user_id,
+        )
         .order_by(models.StoryTurn.id.asc())
         .first()
     )

@@ -211,19 +211,57 @@ def get_story_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """
-    Выдача полной истории по ID.
-    Возвращает:
-    - основные данные истории
-    - список ходов
-    """
+    # Пытаемся получить историю (разрешаем owner_id == NULL — шаблон)
+    db_story = (
+        db.query(models.Story)
+        .filter(models.Story.id == story_id)
+        .first()
+    )
 
-    db_story = story.get_story(db, story_id=story_id, owner_id=current_user.id)
     if not db_story:
         raise HTTPException(status_code=404, detail="История не найдена")
 
-    # 🔹 получаем ходы (если нужно)
-    turns = story.get_turns(db, story_id=story_id)
+    # Если это шаблон — создаём (или переиспользуем) копию для пользователя
+    if db_story.owner_id is None:
+        # 1. Проверяем, есть ли уже копия этого шаблона у пользователя
+        existing_copy = (
+            db.query(models.Story)
+            .filter(
+                models.Story.owner_id == current_user.id,
+                models.Story.template_id == db_story.id,
+            )
+            .first()
+        )
+
+        if existing_copy:
+            db_story = existing_copy
+        else:
+            # 2. Создаём копию шаблона
+            copied_story = models.Story(
+                owner_id=current_user.id,
+                template_id=db_story.id,
+                title=db_story.title,
+                genre=db_story.genre,
+                config=db_story.config,
+            )
+            db.add(copied_story)
+            db.commit()
+            db.refresh(copied_story)
+
+            # инкремент счётчика историй пользователя
+            db.query(models.User).filter(models.User.id == current_user.id).update(
+                {models.User.stories_count: models.User.stories_count + 1}
+            )
+            db.commit()
+
+            db_story = copied_story
+
+    # Проверка доступа: после копирования история обязана принадлежать пользователю
+    if db_story.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа к истории")
+
+    # Получаем ходы уже КОПИИ истории
+    turns = story.get_turns(db, story_id=db_story.id)
 
     return {
         "id": db_story.id,
