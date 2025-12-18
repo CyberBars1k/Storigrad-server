@@ -69,7 +69,6 @@ def list_stories_for_user(db: Session, owner_id: int) -> List[models.Story]:
 def add_turn(
     db: Session,
     story_id: int,
-    user_id: int,
     user_text: str,
     model_text: str,
     yc_previous_response_id: str | None = None,
@@ -79,7 +78,6 @@ def add_turn(
         db.query(models.StoryTurn)
         .filter(
             models.StoryTurn.story_id == story_id,
-            models.StoryTurn.user_id == user_id,
         )
         .order_by(models.StoryTurn.id.asc())
         .first()
@@ -89,7 +87,6 @@ def add_turn(
     if not turn_row:
         turn_row = models.StoryTurn(
             story_id=story_id,
-            user_id=user_id,
             turns=[],
             yc_previous_response_id=yc_previous_response_id,
         )
@@ -123,7 +120,6 @@ def add_turn(
 def get_turns(
     db: Session,
     story_id: int,
-    user_id: int,
     limit: int = 50,
 ) -> List[Dict[str, Any]]:
     """
@@ -136,7 +132,6 @@ def get_turns(
         db.query(models.StoryTurn)
         .filter(
             models.StoryTurn.story_id == story_id,
-            models.StoryTurn.user_id == user_id,
         )
         .order_by(models.StoryTurn.id.asc())
         .first()
