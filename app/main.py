@@ -259,6 +259,49 @@ def get_story_endpoint(
         "turns": turns,
     }
 
+@app.post("/stories/{story_id}/duplicate")
+def duplicate_story_endpoint(
+    story_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    # Получаем исходную историю (шаблон или пользовательскую)
+    source_story = (
+        db.query(models.Story)
+        .filter(models.Story.id == story_id)
+        .first()
+    )
+
+    if not source_story:
+        raise HTTPException(status_code=404, detail="История не найдена")
+
+    # Если история пользовательская — проверяем доступ
+    if source_story.owner_id is not None and source_story.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа к истории")
+
+    # Создаём копию
+    copied_story = models.Story(
+        owner_id=current_user.id,
+        title=source_story.title,
+        genre=source_story.genre,
+        config=source_story.config,
+    )
+
+    # Если дублируем шаблон — сохраняем связь с ним
+    if source_story.owner_id is None and hasattr(copied_story, "template_id"):
+        copied_story.template_id = source_story.id
+
+    db.add(copied_story)
+    db.commit()
+    db.refresh(copied_story)
+
+    # Инкремент счётчика историй пользователя
+    db.query(models.User).filter(models.User.id == current_user.id).update(
+        {models.User.stories_count: models.User.stories_count + 1}
+    )
+    db.commit()
+
+    return {"id": copied_story.id}
 
 @app.post("/api/story_step")
 def story_step(payload: StoryStepIn, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
