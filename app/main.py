@@ -228,7 +228,6 @@ def get_story_endpoint(
             db.query(models.Story)
             .filter(
                 models.Story.owner_id == current_user.id,
-                models.Story.template_id == db_story.id,
             )
             .first()
         )
@@ -239,7 +238,6 @@ def get_story_endpoint(
             # 2. Создаём копию шаблона
             copied_story = models.Story(
                 owner_id=current_user.id,
-                template_id=db_story.id,
                 title=db_story.title,
                 genre=db_story.genre,
                 config=db_story.config,
