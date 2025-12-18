@@ -152,6 +152,45 @@ def update_story_endpoint(
         "config": db_story.config,
     }
 
+@app.delete("/stories/{story_id}")
+def delete_story_endpoint(
+    story_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    db_story = (
+        db.query(models.Story)
+        .filter(models.Story.id == story_id)
+        .first()
+    )
+
+    if not db_story:
+        raise HTTPException(status_code=404, detail="История не найдена")
+
+    # Нельзя удалять шаблоны
+    if db_story.owner_id is None:
+        raise HTTPException(status_code=403, detail="Нельзя удалять шаблонные истории")
+
+    # Доступ только владельцу
+    if db_story.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа к удалению этой истории")
+
+    # Удаляем связанные turns (на случай, если нет каскада)
+    db.query(models.StoryTurn).filter(models.StoryTurn.story_id == story_id).delete()
+
+    # Удаляем саму историю
+    db.delete(db_story)
+
+    # Обновляем счётчик историй пользователя (не ниже 0)
+    if getattr(current_user, "stories_count", None) is not None:
+        new_count = max(0, int(current_user.stories_count) - 1)
+        db.query(models.User).filter(models.User.id == current_user.id).update(
+            {models.User.stories_count: new_count}
+        )
+
+    db.commit()
+
+    return {"ok": True}
 
 @app.get("/stories")
 def list_stories_endpoint(
