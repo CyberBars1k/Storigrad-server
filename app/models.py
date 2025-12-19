@@ -50,5 +50,5 @@ class StoryTurn(Base):
     id = Column(Integer, primary_key=True, index=True)
     story_id = Column(Integer, ForeignKey("stories.id"), nullable=False, index=True)
     turns = Column(JSON, nullable=False, default=list)
-
+    yc_previous_response_id = Column(String, nullable=False)
     story = relationship("Story", back_populates="turns")
