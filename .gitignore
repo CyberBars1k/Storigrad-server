@@ -2,3 +2,6 @@ app/temp.txt
 app/temp2.txt
 app/storyteller_mini_old.py
 .env
+app/field_assitant_old.py
+app/main.py
+app/field_assistant.py

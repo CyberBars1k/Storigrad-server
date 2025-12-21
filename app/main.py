@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import RedirectResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from time import perf_counter
 from app.schemas import InferenceRequest, InferenceResponse, HealthResponse, StoryStepIn
 from app.service import get_pipeline, Pipeline
-from app.config import settings
+from app.config import settings, MAX_FILE_SIZE
+from app.storage import image_storage
 from pydantic import BaseModel, EmailStr
 from typing import Dict, Optional, Any, Literal
 import hashlib
@@ -356,8 +357,7 @@ def story_step(payload: StoryStepIn, db: Session = Depends(get_db), current_user
 
 class FieldAssistantRequest(BaseModel):
     prompt: str
-    field_type: str
-    story_config: Optional[Dict[str, Any]] = None
+    genre: str
 
 @app.post("/api/field_assistant")
 async def field_assistant(req: FieldAssistantRequest, current_user=Depends(get_current_user)):
@@ -366,8 +366,7 @@ async def field_assistant(req: FieldAssistantRequest, current_user=Depends(get_c
     """
     result = await generate_field_value(
         user_prompt=req.prompt,
-        field_type=req.field_type,
-        story_config=req.story_config,
+        genre=req.genre,
     )
     return {"result": result}
 
@@ -465,3 +464,39 @@ def update_user(
     )
 
     return ProfileResponse(user=user_out)
+
+
+@app.post("/upload-image")
+async def upload_image(image: UploadFile = File(...)):
+    if image.content_type not in ("image/png", "image/jpeg", "image/webp"):
+        raise HTTPException(status_code=400, detail="Invalid image type")
+
+    file_bytes = await image.read()
+
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large")
+
+    url = image_storage.upload_image(
+        file_bytes=file_bytes,
+        content_type=image.content_type,
+    )
+
+    return {"url": url}
+
+
+@app.get("/images/{image_name}")
+def get_image(image_name: str):
+    key = f"images/{image_name}"
+
+    try:
+        data, content_type = image_storage.get_image(key)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=86400",
+        },
+    )

@@ -19,7 +19,12 @@ class Settings(BaseSettings):
     YANDEX_CLOUD_API_KEY: str
     YANDEX_CLOUD_PROJECT: str
 
-    
+    S3_BUCKET = str
+
+    S3_ACCESS_KEY = str
+    S3_SECRET_KEY = str
+
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
