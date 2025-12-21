@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from time import perf_counter
 from app.schemas import InferenceRequest, InferenceResponse, HealthResponse, StoryStepIn
 from app.service import get_pipeline, Pipeline
-from app.config import settings, MAX_FILE_SIZE
+from app.config import settings
 from app.storage import image_storage
 from pydantic import BaseModel, EmailStr
 from typing import Dict, Optional, Any, Literal
@@ -473,7 +473,7 @@ async def upload_image(image: UploadFile = File(...)):
 
     file_bytes = await image.read()
 
-    if len(file_bytes) > MAX_FILE_SIZE:
+    if len(file_bytes) > 30000000:
         raise HTTPException(status_code=400, detail="File too large")
 
     url = image_storage.upload_image(
