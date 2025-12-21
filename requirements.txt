@@ -8,3 +8,5 @@ python-dotenv
 pydantic-settings
 pydantic[email]
 openai
+boto3
+botocore
