@@ -35,7 +35,6 @@ class ImageStorage:
                 Key=key,
                 Body=file_bytes,
                 ContentType=content_type,
-                ACL="public-read",
             )
         except ClientError as e:
             raise RuntimeError("Image upload failed") from e
