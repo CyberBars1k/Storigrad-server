@@ -31,7 +31,7 @@ class ImageStorage:
 
         try:
             self.client.put_object(
-                Bucket=S3_BUCKET,
+                Bucket="storygrad",
                 Key=key,
                 Body=file_bytes,
                 ContentType=content_type,
