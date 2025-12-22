@@ -37,7 +37,7 @@ class ImageStorage:
                 ContentType=content_type,
             )
         except ClientError as e:
-            raise RuntimeError("Image upload failed") from e
+            raise RuntimeError(e.response["Error"]) from e
 
         return f"{PUBLIC_CDN_URL}/{key}"
 
