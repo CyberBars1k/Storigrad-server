@@ -29,6 +29,7 @@ from .field_assistant import generate_field_value
 class StoryUpdate(BaseModel):
     title: Optional[str] = None
     config: Optional[dict] = None
+    cover_url: Optional[str] = None
 
 app = FastAPI(title="Storigrad API", version="0.1.0")
 
@@ -105,6 +106,7 @@ def create_story_endpoint(
     title = payload.get("title")
     config = payload.get("config")
     genre = payload.get("genre")
+    cover_url = payload.get("cover_url")
     db_story = story.create_story(
       db=db,
       owner_id=current_user.id,
@@ -112,6 +114,10 @@ def create_story_endpoint(
       config=config,
       title=title,  # позже можно добавить поле названия на фронте
     )
+    # cover_url хранится вне config
+    if cover_url is not None:
+        setattr(db_story, "cover_url", cover_url)
+        db.add(db_story)
     db.query(models.User).filter(models.User.id == current_user.id).update(
         {models.User.stories_count: models.User.stories_count + 1}
     )
@@ -143,6 +149,8 @@ def update_story_endpoint(
         db_story.title = payload.title
     if payload.config is not None:
         db_story.config = payload.config
+    if payload.cover_url is not None:
+        setattr(db_story, "cover_url", payload.cover_url)
 
     db.commit()
     db.refresh(db_story)
@@ -151,6 +159,7 @@ def update_story_endpoint(
         "id": db_story.id,
         "title": db_story.title,
         "config": db_story.config,
+        "cover_url": getattr(db_story, "cover_url", None),
     }
 
 @app.delete("/stories/{story_id}")
@@ -205,6 +214,7 @@ def list_stories_endpoint(
             "owner_id": s.owner_id,
             "title": s.title,
             "config": s.config,
+            "cover_url": getattr(s, "cover_url", None),
             "created_at": s.created_at,
             "updated_at": s.updated_at,
             "genre": s.genre,
@@ -270,6 +280,7 @@ def get_story_endpoint(
             title=db_story.title,
             genre=db_story.genre,
             config=db_story.config,
+            cover_url=getattr(db_story, "cover_url", None),
         )
         db.add(copied_story)
         db.commit()
@@ -296,6 +307,7 @@ def get_story_endpoint(
         "id": db_story.id,
         "title": db_story.title,
         "config": db_story.config,
+        "cover_url": getattr(db_story, "cover_url", None),
         "turns": turns,
     }
 
@@ -325,6 +337,7 @@ def duplicate_story_endpoint(
         title=source_story.title,
         genre=source_story.genre,
         config=source_story.config,
+        cover_url=getattr(source_story, "cover_url", None),
     )
 
     # Если дублируем шаблон — сохраняем связь с ним
