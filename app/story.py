@@ -16,6 +16,7 @@ def create_story(
     title: Optional[str] = None,
     genre: str = "Fantasy",
     cover_url: str | None = None,
+    npc_avatars: Dict[str, str] | None = None,
 ) -> models.Story:
     """Создать историю и сохранить её конфиг (sys.json/payload)."""
     story = models.Story(
@@ -24,6 +25,7 @@ def create_story(
         genre=genre,
         config=config,
         cover_url=cover_url,
+        npc_avatars=npc_avatars,
     )
     db.add(story)
     db.commit()

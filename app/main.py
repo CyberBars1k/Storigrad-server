@@ -215,6 +215,7 @@ def list_stories_endpoint(
             "title": s.title,
             "config": s.config,
             "cover_url": getattr(s, "cover_url", None),
+            "npc_avatars": getattr(s, "npc_avatars", None),
             "created_at": s.created_at,
             "updated_at": s.updated_at,
             "genre": s.genre,
@@ -281,6 +282,7 @@ def get_story_endpoint(
             genre=db_story.genre,
             config=db_story.config,
             cover_url=getattr(db_story, "cover_url", None),
+            npc_avatars=getattr(db_story, "npc_avatars", None),
         )
         db.add(copied_story)
         db.commit()
@@ -309,6 +311,7 @@ def get_story_endpoint(
         "config": db_story.config,
         "cover_url": getattr(db_story, "cover_url", None),
         "turns": turns,
+        "npc_avatars": getattr(db_story, "npc_avatars", None),
     }
 
 @app.post("/stories/{story_id}/duplicate")
@@ -338,6 +341,7 @@ def duplicate_story_endpoint(
         genre=source_story.genre,
         config=source_story.config,
         cover_url=getattr(source_story, "cover_url", None),
+        npc_avatars=getattr(source_story, "npc_avatars", None),
     )
 
     # Если дублируем шаблон — сохраняем связь с ним

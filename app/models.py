@@ -28,6 +28,7 @@ class Story(Base):
     title = Column(String, nullable=False)  # пока можно оставить nullable
     config = Column(JSON, nullable=False)  # сюда кладём sys.json / payload
     cover_url = Column(Text, nullable=True)
+    npc_avatars = Column(JSON, nullable=True, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
         DateTime,
