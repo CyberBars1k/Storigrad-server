@@ -27,7 +27,7 @@ class Story(Base):
     genre = Column(String, nullable=False)
     title = Column(String, nullable=False)  # пока можно оставить nullable
     config = Column(JSON, nullable=False)  # сюда кладём sys.json / payload
-
+    cover_url = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
         DateTime,
