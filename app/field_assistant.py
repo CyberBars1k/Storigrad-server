@@ -10,7 +10,7 @@ load_dotenv()
 
 # Yandex Cloud AI Studio (Assistant Responses API)
 YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
-YANDEX_CLOUD_PROJECT_ID = os.getenv("YANDEX_CLOUD_PROJECT_ID")
+YANDEX_CLOUD_PROJECT_ID = os.getenv("YANDEX_CLOUD_PROJECT")
 # Optional: prompt/assistant id if you configured it in AI Studio
 YANDEX_FIELD_ASSISTANT_PROMPT_ID = os.getenv("YANDEX_FIELD_ASSISTANT_PROMPT_ID")
 
