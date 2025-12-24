@@ -16,6 +16,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     plan: Mapped[str] = mapped_column(String(20), nullable=False, default="Free")
     stories_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    avatar = Column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 

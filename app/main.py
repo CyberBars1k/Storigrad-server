@@ -394,6 +394,7 @@ class ProfileUserOut(BaseModel):
     created_at: datetime
     plan: str
     stories_count: int
+    avatar: Optional[str] = None
 
 class ProfileResponse(BaseModel):
     user: ProfileUserOut
@@ -402,6 +403,7 @@ class UserUpdateRequest(BaseModel):
     email: Optional[EmailStr] = None
     username: Optional[str] = None
     password: Optional[str] = None
+    avatar: Optional[str] = None
 
 @app.get("/api/profile", response_model=ProfileResponse)
 def get_profile(
@@ -418,6 +420,7 @@ def get_profile(
         created_at=current_user.created_at,
         plan=current_user.plan,
         stories_count=current_user.stories_count,
+        avatar=getattr(current_user, "avatar", None),
     )
 
     return ProfileResponse(user=user_out)
@@ -467,6 +470,15 @@ def update_user(
                 )
             current_user.password_hash = hash_password(new_password)
 
+    # avatar
+    if req.avatar is not None:
+        # allow clearing avatar with empty string
+        new_avatar = req.avatar.strip() if isinstance(req.avatar, str) else None
+        if new_avatar:
+            current_user.avatar = new_avatar
+        else:
+            current_user.avatar = None
+
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
@@ -478,6 +490,7 @@ def update_user(
         created_at=current_user.created_at,
         plan=current_user.plan,
         stories_count=current_user.stories_count,
+        avatar=getattr(current_user, "avatar", None),
     )
 
     return ProfileResponse(user=user_out)
