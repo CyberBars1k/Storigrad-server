@@ -24,7 +24,7 @@ from .auth import (
     create_jwt,
     get_current_user,
 )
-from .field_assistant import generate_field_value
+from .field_assistant import generate_story_config
 
 class StoryUpdate(BaseModel):
     title: Optional[str] = None
@@ -373,19 +373,19 @@ def story_step(payload: StoryStepIn, db: Session = Depends(get_db), current_user
     return {"reply": text}
 
 class FieldAssistantRequest(BaseModel):
-    prompt: str
+    user_prompt: str
     genre: str
 
 @app.post("/api/field_assistant")
 async def field_assistant(req: FieldAssistantRequest, current_user=Depends(get_current_user)):
     """
-    Генерация текста для одного из полей истории с помощью AI.
+    Генерация полного конфига истории с помощью AI (жанр + заявка пользователя).
     """
-    result = await generate_field_value(
-        user_prompt=req.prompt,
+    config = await generate_story_config(
         genre=req.genre,
+        user_prompt=req.user_prompt,
     )
-    return {"result": result}
+    return config
 
 class ProfileUserOut(BaseModel):
     id: int
