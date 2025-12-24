@@ -1,120 +1,154 @@
 import os
-from dotenv import load_dotenv
-from openai import OpenAI
 import json
 import asyncio
+from typing import Any, Dict, Optional
+
+from dotenv import load_dotenv
+import openai
 
 load_dotenv()
-# Клиент HuggingFace Router
-client = OpenAI(
-    base_url="https://router.huggingface.co/v1",
-    api_key=os.getenv("HF_TOKEN"),
+
+# Yandex Cloud AI Studio (Assistant Responses API)
+YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
+YANDEX_CLOUD_PROJECT_ID = os.getenv("YANDEX_CLOUD_PROJECT_ID")
+# Optional: prompt/assistant id if you configured it in AI Studio
+YANDEX_FIELD_ASSISTANT_PROMPT_ID = os.getenv("YANDEX_FIELD_ASSISTANT_PROMPT_ID")
+
+if not YANDEX_CLOUD_API_KEY:
+    raise RuntimeError("YANDEX_CLOUD_API_KEY is not set")
+
+client = openai.OpenAI(
+    api_key=YANDEX_CLOUD_API_KEY,
+    base_url="https://rest-assistant.api.cloud.yandex.net/v1",
+    project=YANDEX_CLOUD_PROJECT_ID,
 )
 
-SYSTEM_PROMPT = """
-Ты — помощник по написанию интерактивных историй. Твоя задача — по краткой заявке пользователя писать законченные тексты для отдельных полей конфигурации истории (описание истории, герой, NPC, стартовая фраза).
-Ты всегда учитываешь текущую конфигурацию истории, которая передана в системных сообщениях в формате JSON.
-Всегда строго соблюдай формат и ограничения по длине, указанные в запросе.
-Пиши по-русски, литературным, но понятным языком. Не используй списки и не добавляй пояснений от себя.
-Не используй много творческих оборотов. Пиши так, будто продолжаешь идею пользователя.
-Если пользователь использует какую-то существующую вселенную, уточняй информацию об этой вселенной в интернете.
-"""
 
-PLACEHOLDER_INSTRUCTION = (
-    " Учитывай общую конфигурацию истории, которая передана в системном сообщении. "
-    "Если в тексте нужно упомянуть героя игрока, всегда используй маркер {{user}} вместо имени. "
-    "Если нужно упомянуть любого NPC, используй маркер вида {{Имя_NPC}} в двойных фигурных скобках."
-)
 
-async def generate_field_value(
+def _extract_text_from_response(resp: Any) -> str:
+    """Best-effort extraction of text from Responses API."""
+    # Newer OpenAI SDKs often expose `output_text` convenience
+    text = getattr(resp, "output_text", None)
+    if isinstance(text, str) and text.strip():
+        return text
+
+    # Fallback: try to traverse response.output
+    output = getattr(resp, "output", None)
+    if isinstance(output, list):
+        chunks: list[str] = []
+        for item in output:
+            content = getattr(item, "content", None)
+            if isinstance(content, list):
+                for c in content:
+                    t = getattr(c, "text", None)
+                    if isinstance(t, str):
+                        chunks.append(t)
+        joined = "\n".join(chunks).strip()
+        if joined:
+            return joined
+
+    # Last resort
+    return str(resp).strip()
+
+
+def _json_loads_strict(text: str) -> Dict[str, Any]:
+    """Parse JSON from model output. Accepts raw JSON or fenced code blocks."""
+    s = (text or "").strip()
+
+    # Strip markdown fences if present
+    if s.startswith("```"):
+        s = s.strip("`")
+        # If it was ```json ...
+        s = s.replace("json\n", "", 1)
+
+    # Try direct parse
+    return json.loads(s)
+
+
+def _validate_schema(obj: Dict[str, Any]) -> Dict[str, Any]:
+    """Light validation + normalization to the expected keys."""
+    if not isinstance(obj, dict):
+        raise ValueError("Assistant output is not a JSON object")
+
+    # Required keys
+    for k in ("story_description", "player_description", "npc_description"):
+        if k not in obj:
+            raise ValueError(f"Missing key: {k}")
+
+    if not isinstance(obj["story_description"], str):
+        raise ValueError("story_description must be a string")
+
+    pd = obj["player_description"]
+    if not isinstance(pd, dict) or "user" not in pd or not isinstance(pd.get("user"), str):
+        raise ValueError("player_description must be an object with string field 'user'")
+
+    nd = obj["npc_description"]
+    if not isinstance(nd, dict) or not nd:
+        raise ValueError("NPC_description must be a non-empty object")
+    for name, desc in nd.items():
+        if not isinstance(name, str) or not isinstance(desc, str):
+            raise ValueError("NPC_description must be {name: string_description}")
+
+    return obj
+
+
+async def generate_story_config(
+    genre: str,
     user_prompt: str,
-    field_type: str = "description",
-    story_config: dict | None = None,
-) -> str:
-    """
-    Генерация текста для конкретного поля (описание истории / герой / npc / стартовая фраза).
-    """
+) -> Dict[str, Any]:
+    """Generate full story config from (genre, user_prompt). Returns a parsed JSON dict."""
 
-    field_map = {
-        "story_description": "description",
-        "player_description": "player",
-        "npc_description": "npc",
-        "start_phrase": "start",
-    }
+    genre = (genre or "").strip()
+    user_prompt = (user_prompt or "").strip()
 
-    # Нормализуем тип поля до одного из ключей prompt_templates
-    internal_field_type = field_map.get(field_type, field_type)
+    if not genre:
+        raise ValueError("genre is required")
+    if not user_prompt:
+        raise ValueError("user_prompt is required")
 
-    # Подготовка текста конфигурации истории для системного промта
-    config_text = ""
-    if story_config is not None:
-        try:
-            config_json = json.dumps(story_config, ensure_ascii=False, indent=2)
-        except TypeError:
-            # На случай, если передали не-сериализуемый объект — приводим к строке
-            config_json = str(story_config)
-        config_text = "\n\nТекущая конфигурация истории (JSON):\n" + config_json
-
-    prompt_templates = {
-        "description": (
-            "Сделай связное описание истории объёмом не более 15 предложений. "
-            "Используй следующую информацию пользователя как черновик, структурируй и уточни её, "
-            "но не меняй суть и не добавляй новые факты: {user_input}"
-            + PLACEHOLDER_INSTRUCTION
-        ),
-        "player": (
-            "Сделай описание персонажа игрока объёмом не более 5 предложений. "
-            "Пиши в третьем лице. Всегда начинай описание текста с имени персонажа.  Используй"
-            " следующую информацию пользователя: {user_input}"
-            + PLACEHOLDER_INSTRUCTION
-        ),
-        "npc": (
-            "Сделай описание NPC объёмом не более 5 предложений. Пиши в третьем лице. "
-            "NPC должен быть индивидуальным, но не добавляй новых фактов. "
-            "Информация пользователя: {user_input}"
-            + PLACEHOLDER_INSTRUCTION
-        ),
-        "start": (
-            "Сделай стартовую фразу истории объёмом не более 3 предложений. "
-            "Это должна быть начальная сцена или реплика, которая плавно вводит игрока в ситуацию. "
-            "Используй следующую информацию пользователя: {user_input}"
-            + PLACEHOLDER_INSTRUCTION
-        ),
-    }
-
-    template = prompt_templates.get(internal_field_type, prompt_templates["description"])
-    user_message = template.format(user_input=user_prompt.strip())
-
-    system_prompt = SYSTEM_PROMPT + config_text
-
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_message},
-    ]
-
-    completion = client.chat.completions.create(
-        model="Qwen/Qwen3-235B-A22B-Instruct-2507:novita",
-        messages=messages,
-        temperature=0.1
+    # The model should receive only genre + user prompt.
+    # Keep the user message simple and explicit.
+    user_message = (
+        f"Жанр: {genre}\n"
+        f"Запрос пользователя: {user_prompt}\n\n"
     )
 
-    return completion.choices[0].message.content
-
-
-if __name__ == "__main__":
-    async def main():
-        # Пример конфигурации истории
-        example_story_config = {
-        }
-
-        user_prompt = ""
-
-        print("\n=== Тест: персонаж игрока ===")
-        player = await generate_field_value(
-            user_prompt="Рок Мунстоун - персонаж из вселенной Genshin Impact, близкий друг {{durin}}. Помогает ему осваиваться в Тейвате",
-            field_type="player_description",
-            story_config=example_story_config,
+    # Preferred path: use prompt id if provided (AI Studio Agent/Prompt)
+    if YANDEX_FIELD_ASSISTANT_PROMPT_ID:
+        resp = client.responses.create(
+            prompt={
+                "id": YANDEX_FIELD_ASSISTANT_PROMPT_ID,
+            },
+            input=user_message,
         )
-        print(player)
 
-    asyncio.run(main())
+    text = _extract_text_from_response(resp)
+
+    try:
+        obj = _json_loads_strict(text)
+        return _validate_schema(obj)
+    except Exception:
+        # Repair pass: force the assistant to output valid JSON only
+        repair_user = (
+            "Твой предыдущий ответ не является валидным JSON по схеме. "
+            "Верни ТОЛЬКО валидный JSON-объект строго по формату (без markdown, без пояснений).\n\n"
+            f"Жанр: {genre}\n"
+            f"Запрос пользователя: {user_prompt}"
+        )
+
+        if YANDEX_FIELD_ASSISTANT_PROMPT_ID:
+            resp2 = client.responses.create(
+                prompt={
+                    "id": YANDEX_FIELD_ASSISTANT_PROMPT_ID,
+                },
+                input=repair_user,
+            )
+
+        text2 = _extract_text_from_response(resp2)
+        obj2 = _json_loads_strict(text2)
+        return _validate_schema(obj2)
+
+
+# Backwards-compatible wrapper name (if other code imports it)
+async def generate_field_values(genre: str, user_prompt: str) -> Dict[str, Any]:
+    return await generate_story_config(genre=genre, user_prompt=user_prompt)
