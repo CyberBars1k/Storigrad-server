@@ -57,6 +57,7 @@ def generate_story_step(
         db.query(models.StoryTurn)
         .filter(
             models.StoryTurn.story_id == story_id,
+            models.StoryTurn.user_id == user_id,
         )
         .order_by(models.StoryTurn.id.desc())
         .first()
@@ -66,6 +67,7 @@ def generate_story_step(
     story_description = config.get("story_description", "")
     player_description = config.get("player_description", {})
     npc_description = config.get("NPC_description", [])
+    start_phrase = config.get("start_phrase", "")
     yc_agent_prompt_id = config.get("yc_agent_prompt_id") or os.getenv(
         "YANDEX_CLOUD_AGENT_PROMPT_ID"
     )
@@ -110,14 +112,30 @@ def generate_story_step(
         "mode": str(mode),
     }
 
-    # 5. Build input string
-    input_text = f"Тип хода: {mode}\nХод пользователя: {user_input}".strip()
+    # 5. Build input payload
+    user_message_text = f"Тип хода: {mode}\nХод пользователя: {user_input}".strip()
+
+    # For the very first turn for this user in this story, seed the agent with start_phrase
+    # as if it was the previous assistant message.
+    if (not yc_previous_response_id) and isinstance(start_phrase, str) and start_phrase.strip():
+        input_payload = [
+            {
+                "role": "assistant",
+                "content": [{"type": "text", "text": start_phrase.strip()}],
+            },
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": user_message_text}],
+            },
+        ]
+    else:
+        input_payload = user_message_text
 
     # 6. Call Yandex Cloud responses.create
     try:
         kwargs = {
             "prompt": {"id": yc_agent_prompt_id, "variables": variables},
-            "input": input_text,
+            "input": input_payload,
         }
         if yc_previous_response_id:
             kwargs["previous_response_id"] = yc_previous_response_id
@@ -142,6 +160,7 @@ def generate_story_step(
     story_crud.add_turn(
         db=db,
         story_id=story_id,
+        user_id=user_id,
         user_text=user_input,
         model_text=story_text,
         yc_previous_response_id=new_response_id,
