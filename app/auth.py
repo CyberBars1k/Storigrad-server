@@ -52,34 +52,26 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
-    """Verify password against stored hash.
-
-    Supports:
-    - bcrypt hashes (new)
-    - legacy sha256 hex digests (old)
-    """
+    """Verify against passlib hashes (bcrypt_sha256) + legacy sha256 hex."""
     if not stored_hash:
         return False
 
     # bcrypt hashes usually start with "$2" (e.g., $2b$...)
-    if stored_hash.startswith("$2"):
-        from passlib.context import CryptContext
+    from passlib.context import CryptContext
 
-        pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
-        try:
+    pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+    try:
+        if pwd_context.identify(stored_hash):
             return pwd_context.verify(password, stored_hash)
-        except Exception:
-            return False
+    except Exception:
+        return False
 
-    # Legacy sha256 (development-only) support
+    # Legacy sha256 hex digest support
     return _hash_password_sha256(password) == stored_hash
 
 
 def verify_and_upgrade_password(db: Session, user: models.User, password: str) -> bool:
-    """Verify password and, if the user is on legacy sha256, upgrade to bcrypt.
-
-    Returns True if password is correct, otherwise False.
-    """
+    """Verify password and upgrade legacy sha256 to bcrypt_sha256."""
     if not user or not getattr(user, "password_hash", None):
         return False
 
@@ -87,8 +79,13 @@ def verify_and_upgrade_password(db: Session, user: models.User, password: str) -
     if not ok:
         return False
 
-    # If legacy sha256, upgrade to bcrypt immediately
-    if not user.password_hash.startswith("$2"):
+    # Upgrade only legacy sha256 (64 hex chars)
+    is_legacy_sha256 = (
+        len(user.password_hash) == 64
+        and all(c in "0123456789abcdef" for c in user.password_hash.lower())
+    )
+
+    if is_legacy_sha256:
         user.password_hash = hash_password(password)
         db.add(user)
         db.commit()
