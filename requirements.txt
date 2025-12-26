@@ -11,4 +11,5 @@ openai
 boto3
 botocore
 python-multipart
-passlib[bcrypt]
+passlib
+bcrypt

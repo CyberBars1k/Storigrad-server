@@ -47,7 +47,7 @@ def hash_password(password: str) -> str:
     # passlib provides safe salts + constant-time verification
     from passlib.context import CryptContext
 
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
     return pwd_context.hash(password)
 
 
@@ -65,7 +65,7 @@ def verify_password(password: str, stored_hash: str) -> bool:
     if stored_hash.startswith("$2"):
         from passlib.context import CryptContext
 
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
         try:
             return pwd_context.verify(password, stored_hash)
         except Exception:
