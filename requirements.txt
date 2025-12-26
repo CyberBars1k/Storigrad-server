@@ -11,3 +11,4 @@ openai
 boto3
 botocore
 python-multipart
+passlib

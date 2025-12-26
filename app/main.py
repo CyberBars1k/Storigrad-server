@@ -23,6 +23,7 @@ from .auth import (
     hash_password,
     create_jwt,
     get_current_user,
+    verify_and_upgrade_password,
 )
 from .field_assistant import generate_story_config
 
@@ -78,7 +79,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
     email = req.email.lower()
     user = db.query(models.User).filter(models.User.email == email).first()
 
-    if not user or user.password_hash != hash_password(req.password):
+    if not user or not verify_and_upgrade_password(db, user, req.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
