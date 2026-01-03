@@ -57,7 +57,6 @@ def generate_story_step(
         db.query(models.StoryTurn)
         .filter(
             models.StoryTurn.story_id == story_id,
-            models.StoryTurn.user_id == user_id,
         )
         .order_by(models.StoryTurn.id.desc())
         .first()
