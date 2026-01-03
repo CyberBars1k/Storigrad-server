@@ -159,7 +159,6 @@ def generate_story_step(
     story_crud.add_turn(
         db=db,
         story_id=story_id,
-        user_id=user_id,
         user_text=user_input,
         model_text=story_text,
         yc_previous_response_id=new_response_id,
